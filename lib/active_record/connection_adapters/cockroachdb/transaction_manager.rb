@@ -20,6 +20,18 @@ module ActiveRecord
           end
           super(options)
         end
+
+        def within_new_transaction(options = {})
+          attempts = options.fetch(:attempts, 0)
+          super
+        rescue ActiveRecord::SerializationFailure => error
+          raise if attempts >= @connection.max_transaction_retries
+
+          attempts += 1
+          sleep_seconds = (2 ** attempts + rand) / 10
+          sleep(sleep_seconds)
+          within_new_transaction(options.merge(attempts: attempts)) { yield }
+        end
       end
     end
 
